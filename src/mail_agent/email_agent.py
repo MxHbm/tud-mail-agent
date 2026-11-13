@@ -15,6 +15,7 @@ functions:
 import smtplib
 import socket
 import ssl
+import truststore
 
 from load_credentials import get_tud_credentials
 from smtp_server_globals import SMTP_PORT, SMTP_SERVER
@@ -93,7 +94,8 @@ def send_message(messsage: EmailMessage) -> None:
     """
     sender_email, password = get_tud_credentials()
 
-    context = ssl.create_default_context()
+    #Fetch missing roots automatically!
+    context = truststore.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
 
     try:
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=30) as server:
