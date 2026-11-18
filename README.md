@@ -18,20 +18,74 @@ In a `requirements.txt`: `mail-agent @ git+https://github.com/MxHbm/tud-mail-age
 
 ## Credentials
 
-Create an env file with your mail credentials:
+The agent needs two variables, `TUD_MAIL_USERNAME` and `TUD_MAIL_PASSWORD`. Provide them either as
+environment variables or in an env file.
+
+### Option A: environment variables (no file)
+
+Set them in the shell that starts your program. They only live in that shell session.
+
+PowerShell:
+
+```powershell
+$env:TUD_MAIL_USERNAME = "your.name@tu-dresden.de"
+$env:TUD_MAIL_PASSWORD = [System.Net.NetworkCredential]::new("", (Read-Host -AsSecureString "Password")).Password
+```
+
+bash / zsh:
+
+```bash
+export TUD_MAIL_USERNAME="your.name@tu-dresden.de"
+read -rs -p "Password: " TUD_MAIL_PASSWORD && export TUD_MAIL_PASSWORD; echo
+```
+
+Windows cmd:
+
+```bat
+set TUD_MAIL_USERNAME=your.name@tu-dresden.de
+set TUD_MAIL_PASSWORD=your_password
+```
+
+The PowerShell and bash password lines prompt for the password, so it doesn't end up in your shell
+history. To set the variables permanently for your user (applies to newly opened terminals):
+
+```powershell
+# Windows (PowerShell)
+[Environment]::SetEnvironmentVariable("TUD_MAIL_USERNAME", "your.name@tu-dresden.de", "User")
+[Environment]::SetEnvironmentVariable("TUD_MAIL_PASSWORD", "your_password", "User")
+```
+
+```bash
+# Linux / macOS: add to ~/.bashrc or ~/.zshrc
+export TUD_MAIL_USERNAME="your.name@tu-dresden.de"
+export TUD_MAIL_PASSWORD="your_password"
+```
+
+Note that permanently stored variables are kept in plain text (Windows registry or your shell profile).
+
+### Option B: env file
 
 ```env
 TUD_MAIL_USERNAME=your.name@tu-dresden.de
 TUD_MAIL_PASSWORD=your_password
 ```
 
-**Never commit this file** (put `*.env` into your `.gitignore`). The credentials are taken from the first of:
+**Never commit this file** (put `*.env` into your `.gitignore`).
 
-1. the environment variables `TUD_MAIL_USERNAME` / `TUD_MAIL_PASSWORD`, if both are already set
-2. the file passed as `credentials_file=...` (then only this file is used)
-3. the file named in the environment variable `MAIL_AGENT_CREDENTIALS`
-4. `credentials.env` in the current working directory
-5. `~/.mail_agent/credentials.env`
+### Lookup order
+
+**Without `credentials_file`** (recommended), the credentials are taken from the first of:
+
+1. the environment variables `TUD_MAIL_USERNAME` / `TUD_MAIL_PASSWORD`, if both are set
+2. the file named in the environment variable `MAIL_AGENT_CREDENTIALS`
+3. `credentials.env` in the current working directory
+4. `~/.mail_agent/credentials.env`
+
+**With `credentials_file=...`**, only that file is used and it **must exist**, even if both environment
+variables are set. A relative path is resolved against the current working directory.
+
+In both cases, variables that are already set in the environment take precedence over values in the
+file. If a variable is still missing after loading, `MailError` is raised.
 
 ## Usage
 
