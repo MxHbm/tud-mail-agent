@@ -21,6 +21,33 @@ def _build_message(sender_email: str, receiver_email: str, subject: str, body: s
     msg.set_content(body)
     return msg
 
+def create_start_message(sender_email: str,
+                           receiver_email: str,
+                           experiment_name: str,
+                           individual_subject: str = "",
+                           additional_text: str = "") -> EmailMessage:
+    """Build a dry run notification.
+
+    Parameters
+    ----------
+    sender_email : str
+        Address the mail was sent from.
+    receiver_email : str
+        Address the mail is sent to.
+    experiment_name : str
+        Name of the experiment, used in the default subject.
+    individual_subject : str, optional
+        Custom subject; if empty, a default subject is used.
+    additional_text : str, optional
+        Extra text appended to the mail body.
+    """
+    subject = individual_subject or f"Starting experiment {experiment_name}"
+    body = f"Experiment {experiment_name} is started and end of the experiment will be informed by mail!"
+    if additional_text:
+        body += f"\n\n{additional_text}"
+
+    return _build_message(sender_email, receiver_email, subject, body)
+
 
 def create_success_message(sender_email: str,
                            receiver_email: str,
@@ -48,7 +75,6 @@ def create_success_message(sender_email: str,
         body += f"\n\n{additional_text}"
 
     return _build_message(sender_email, receiver_email, subject, body)
-
 
 def create_error_message(sender_email: str,
                          receiver_email: str,

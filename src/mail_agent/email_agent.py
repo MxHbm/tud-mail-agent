@@ -23,7 +23,7 @@ import truststore
 
 from .errors import MailError
 from .load_credentials import get_tud_credentials
-from .message_creator import EmailMessage, create_error_message, create_success_message
+from .message_creator import EmailMessage, create_error_message, create_success_message, create_start_message
 from .smtp_server_globals import SMTP_PORT, SMTP_SERVER
 
 
@@ -54,6 +54,36 @@ def send_success_message(receiver_email: str,
     """
     sender_email, password = get_tud_credentials(credentials_file)
     message = create_success_message(sender_email, receiver_email, experiment_name, individual_subject, additional_text)
+    _send(message, sender_email, password, smtp_server, smtp_port)
+
+
+def send_start_message(receiver_email: str,
+                         experiment_name: str = "Test",
+                         additional_text: str = "",
+                         individual_subject: str = "",
+                         credentials_file: Path | None = None,
+                         smtp_server: str = SMTP_SERVER,
+                         smtp_port: int = SMTP_PORT,
+                         ) -> None:
+    """Send a success notification for an experiment.
+
+    Parameters
+    ----------
+    receiver_email : str
+        Address the mail is sent to.
+    experiment_name : str, optional
+        Name of the experiment shown in the mail. Defaults to ``"Test"``.
+    additional_text : str, optional
+        Extra text appended to the mail body.
+    individual_subject : str, optional
+        Custom subject; if empty, the default subject is used.
+    credentials_file : pathlib.Path, optional
+        Env file with the credentials, see `get_tud_credentials`.
+    smtp_server, smtp_port : optional
+        SMTP server to use, defaults to the TU Dresden server.
+    """
+    sender_email, password = get_tud_credentials(credentials_file)
+    message = create_start_message(sender_email, receiver_email, experiment_name, individual_subject, additional_text)
     _send(message, sender_email, password, smtp_server, smtp_port)
 
 
