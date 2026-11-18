@@ -1,6 +1,6 @@
 """Message Creator
 
-Builds the success and error notification mails sent by `send_mail`.
+Builds the success and error notification mails sent by `email_agent`.
 
 This file can be imported as a module and contains the following
 functions:
@@ -32,7 +32,7 @@ def create_success_message(sender_email: str,
     Parameters
     ----------
     sender_email : str
-        Address the mail was sent from.    
+        Address the mail was sent from.
     receiver_email : str
         Address the mail is sent to.
     experiment_name : str

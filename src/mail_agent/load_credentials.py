@@ -1,24 +1,21 @@
-"""Load Credentials Script
+"""Load Credentials
 
-This script loads mail-account credentials from an environment file so
-they can be used to log in to the TUD mail server.
+Loads the mail-account credentials, so they can be used to log in to the SMTP server.
 
-The credentials are read from a ``credentials.env`` file (by default
-located in the same directory as this script) that is expected to define
-the following variables::
+The credentials are taken from the environment variables ``TUD_MAIL_USERNAME`` and
+``TUD_MAIL_PASSWORD``. If they are not set, they are loaded from the first existing env file of:
+
+    1. the file passed as ``credentials_file``
+    2. the file named in the environment variable ``MAIL_AGENT_CREDENTIALS``
+    3. ``credentials.env`` in the current working directory
+    4. ``~/.mail_agent/credentials.env``
+
+The env file is expected to define::
 
     TUD_MAIL_USERNAME=<your mail account / username>
     TUD_MAIL_PASSWORD=<your password>
 
-This script requires that `python-dotenv` (which provides
-``load_dotenv``) be installed within the Python environment you are
-running this script in.
-
-This file can also be imported as a module and contains the following
-functions:
-
-    * get_tud_credentials - returns the mail account and password loaded
-      from the environment file
+Never commit this file (add ``*.env`` to your .gitignore).
 """
 
 import os
@@ -26,80 +23,68 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
+from .errors import MailError
+
+CREDENTIALS_PATH_ENV_VARIABLE = "MAIL_AGENT_CREDENTIALS"
+DEFAULT_FILE_NAME = "credentials.env"
+
+
+def _candidate_files(credentials_file: Path | None) -> list[Path]:
+    if credentials_file is not None:
+        return [Path(credentials_file)]
+    candidates = []
+    if os.getenv(CREDENTIALS_PATH_ENV_VARIABLE):
+        candidates.append(Path(os.environ[CREDENTIALS_PATH_ENV_VARIABLE]))
+    candidates.append(Path.cwd() / DEFAULT_FILE_NAME)
+    candidates.append(Path.home() / ".mail_agent" / DEFAULT_FILE_NAME)
+    return candidates
+
 
 def get_tud_credentials(
-    env_dir: Path = Path(__file__).parents[0],
-    credentials_file: str = "credentials.env",
+    credentials_file: Path | None = None,
     mail_account_env_variable: str = "TUD_MAIL_USERNAME",
     password_env_variable: str = "TUD_MAIL_PASSWORD",
 ) -> tuple[str, str]:
-    """Load the TUD mail credentials from an environment file.
-
-    Reads ``env_dir / credentials_file`` with ``load_dotenv`` and returns
-    the values of the mail-account and password variables. Variables that
-    are already set in the process environment are not overwritten
-    (default ``load_dotenv`` behaviour).
+    """Return ``(sender_email, password)``.
 
     Parameters
     ----------
-    env_dir : pathlib.Path, optional
-        Directory containing the environment file. Defaults to the
-        directory this script is located in.
-    credentials_file : str, optional
-        File name of the environment file inside ``env_dir``.
-        Defaults to ``"credentials.env"``.
+    credentials_file : pathlib.Path, optional
+        Env file to load. If given, only this file is used (see module docstring for the search order otherwise).
     mail_account_env_variable : str, optional
         Name of the variable holding the mail account / username.
-        Defaults to ``"TUD_MAIL_USERNAME"``.
     password_env_variable : str, optional
         Name of the variable holding the password.
-        Defaults to ``"TUD_MAIL_PASSWORD"``.
-
-    Returns
-    -------
-    tuple[str, str]
-        ``(sender_email, password)`` as read from the environment.
 
     Raises
     ------
-    OSError
-        If ``env_dir`` does not exist, if the environment file could not
-        be loaded, or if either variable is missing after loading.
-    FileExistsError
-        If ``credentials_file`` is not a file inside ``env_dir``.
+    MailError
+        If no env file is found or a variable is missing after loading.
 
     Examples
     --------
     >>> sender_email, password = get_tud_credentials()
-    >>> sender_email, password = get_tud_credentials(
-    ...     env_dir=Path.home() / "secrets",
-    ...     credentials_file="mail.env",
-    ... )
+    >>> sender_email, password = get_tud_credentials(Path.home() / "secrets" / "mail.env")
     """
-    credentials_env_path = env_dir / credentials_file
 
-    if not env_dir.exists():
-        raise OSError(f"Directory {env_dir} does not exist!")
+    def from_environment():
+        return os.getenv(mail_account_env_variable), os.getenv(password_env_variable)
 
-    if not credentials_env_path.is_file():
-        raise FileExistsError(
-            f"Credentials file {credentials_file} does not exist in directory {env_dir}!"
-        )
+    sender_email, password = from_environment()
+    if credentials_file is None and sender_email and password:
+        return sender_email, password
 
-    # Load environment variables from the .env file into os.environ
-    if not load_dotenv(credentials_env_path):
-        raise OSError("Could not load needed environment file!")
+    candidates = _candidate_files(credentials_file)
+    env_file = next((c for c in candidates if c.is_file()), None)
+    if env_file is None:
+        raise MailError("No credentials file found, searched: " + ", ".join(str(c) for c in candidates))
 
-    sender_email = os.getenv(mail_account_env_variable)
-    if sender_email is None:
-        raise OSError(
-            f"Environment variable {mail_account_env_variable} was not loaded correctly from .env file"
-        )
+    # Variables that are already set in the process environment are not overwritten
+    load_dotenv(env_file)
 
-    password = os.getenv(password_env_variable)
-    if password is None:
-        raise OSError(
-            f"Environment variable {password_env_variable} was not loaded correctly from .env file"
-        )
+    sender_email, password = from_environment()
+    for name, value in ((mail_account_env_variable, sender_email), (password_env_variable, password)):
+        if not value:
+            raise MailError(f"Variable {name} is missing in {env_file}")
 
     return sender_email, password

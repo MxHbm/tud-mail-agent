@@ -1,7 +1,7 @@
 [project]
 name = "mail-agent"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "Send success and error notification mails via SMTP (default: TU Dresden), e.g. at the end of an experiment."
 authors = [
     {name = "Max Hubmann",email = "maxhubmann@outlook.com"}
 ]
@@ -12,9 +12,15 @@ dependencies = [
     "truststore (>=0.10.5,<0.11.0)"
 ]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [tool.poetry]
+# Installable package, so other projects can depend on it (pip install / poetry add)
 packages = [{include = "mail_agent", from = "src"}]
-package-mode = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

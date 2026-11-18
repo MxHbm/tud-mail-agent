@@ -1,52 +1,79 @@
 # Mail Agent
 
-Sends success and error notification mails (e.g. at the end of an experiment) via the TU Dresden SMTP server (`msx.tu-dresden.de:587`, STARTTLS).
+Sends success and error notification mails (e.g. at the end of an experiment) via SMTP with STARTTLS.
+The default server is the TU Dresden server (`msx.tu-dresden.de:587`); every send function accepts
+`smtp_server` / `smtp_port` for another one.
 
-## Installation
+## Use it in another project
 
-Requires Python >= 3.11 and [Poetry](https://python-poetry.org/).
+Requires Python >= 3.11. Pin a release tag, so every project stays on a known version:
 
 ```bash
-cd mail-agent
-poetry env use 3.11
-poetry install
-source .venv/bin/activate
+pip install "mail-agent @ git+https://github.com/MxHbm/tud-mail-agent.git@v0.2.0"
+# or in a poetry project
+poetry add "git+https://github.com/MxHbm/tud-mail-agent.git#v0.2.0"
 ```
 
-## Sending a mail
+In a `requirements.txt`: `mail-agent @ git+https://github.com/MxHbm/tud-mail-agent.git@v0.2.0`
 
-**First create the file `src/mail_agent/credentials.env`** with your TUD mail credentials:
+## Credentials
+
+Create an env file with your mail credentials:
 
 ```env
 TUD_MAIL_USERNAME=your.name@tu-dresden.de
 TUD_MAIL_PASSWORD=your_password
 ```
 
-This file is ignored by git (`*.env`), so it stays out of the repo. If you want to use a different file or location, pass it to `get_tud_credentials(env_dir=..., credentials_file=...)` in `load_credentials.py`.
+**Never commit this file** (put `*.env` into your `.gitignore`). The credentials are taken from the first of:
 
-Then send a test mail (set the recipient in `main.py` first):
+1. the environment variables `TUD_MAIL_USERNAME` / `TUD_MAIL_PASSWORD`, if both are already set
+2. the file passed as `credentials_file=...` (then only this file is used)
+3. the file named in the environment variable `MAIL_AGENT_CREDENTIALS`
+4. `credentials.env` in the current working directory
+5. `~/.mail_agent/credentials.env`
 
-```bash
-cd src/mail_agent
-python main.py
-```
-
-## Usage in your own project
-
-1. Copy `email_agent.py`, `message_creator.py`, `load_credentials.py`, `smtp_server_globals.py` and your `credentials.env` together into **one folder** of your project.
-2. Install the dependency there: `poetry add python-dotenv`.
-3. Import the functions and start notifying yourself:
+## Usage
 
 ```python
-from email_agent import send_success_message, send_error_message
+import traceback
+from mail_agent import send_success_message, send_error_message, MailError
 
 try:
     run_experiment()
     send_success_message("your.name@tu-dresden.de", experiment_name="My Experiment")
 except Exception:
-    import traceback
     send_error_message("your.name@tu-dresden.de", error_text=traceback.format_exc(),
                        experiment_name="My Experiment")
 ```
 
-Both functions also accept `additional_text` (appended to the body) and `individual_subject` (replaces the default subject).
+Both functions also accept `additional_text` (appended to the body), `individual_subject` (replaces the
+default subject) and `credentials_file`. If a mail cannot be sent, `MailError` is raised with the cause
+(login, TLS, DNS, connection, ...). Catch it if a failed notification must not stop your program.
+
+Send a test mail from the command line:
+
+```bash
+python -m mail_agent your.name@tu-dresden.de --credentials path/to/credentials.env
+```
+
+## Development
+
+```bash
+git clone https://github.com/MxHbm/tud-mail-agent.git
+cd tud-mail-agent
+poetry install --extras test      # or: pip install -e ".[test]"
+pytest
+```
+
+To work on the agent while using it in another project, install your clone editable into that
+project's environment (`pip install -e path/to/tud-mail-agent`); changes apply immediately.
+
+## Changes in 0.2.0
+
+- Installable package (`package-mode = false` removed), imports work from anywhere.
+- Errors raise `MailError` instead of `SystemExit`, so a failed mail no longer ends the caller's program.
+- `get_tud_credentials(credentials_file=...)` replaces the `env_dir` / `credentials_file` pair; credentials are
+  also read from environment variables and standard locations (see above).
+- SMTP server and port can be passed to every send function.
+- `main.py` replaced by `python -m mail_agent <receiver>`.
